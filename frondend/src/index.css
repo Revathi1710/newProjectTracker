@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root{
+    --btn-color:#00b7fb;
+}
+.company-name{
+    color:var(--btn-color)
+}
