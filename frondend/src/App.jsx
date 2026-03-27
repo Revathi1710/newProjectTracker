@@ -10,6 +10,10 @@ import Home from "./pages/Home";
 import React from "react";
 import CartPage from "./pages/Cartpage";
 import ProductView from "./pages/Productview";
+import Checkout from "./pages/Checkout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import MyOrder from "./pages/MyOrder";
+import MyAccount from "./pages/MyAccount";
 function App() {
   return (
     <BrowserRouter>
@@ -23,6 +27,33 @@ function App() {
                <Route path="/guest" element={<GuestLayout />} />
                <Route path="/cart" element={<CartPage />} />
                <Route path="/product-view/:slug" element={<ProductView />} />
+              <Route
+  path="/checkout"
+  element={
+    <ProtectedRoute>
+      <Checkout />
+    
+    </ProtectedRoute>
+  }
+/>
+ <Route
+  path="/my-orders"
+  element={
+    <ProtectedRoute>
+      <MyOrder />
+    
+    </ProtectedRoute>
+  }
+/>
+ <Route
+  path="/myAccount"
+  element={
+    <ProtectedRoute>
+      <MyAccount />
+    
+    </ProtectedRoute>
+  }
+/>
       </Routes>
    </ContextProvider>
     

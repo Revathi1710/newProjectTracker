@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import Header from "../components/Header";
 import axios from "axios";
+import { mergeGuestCart } from "../store/cartSlice"; // adjust path as needed
+import Footer from "../components/Footer";
 
 const Login = () => {
-  const navigate = useNavigate();
+  const navigate = useDispatch();
+  const dispatch  = useDispatch();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email,        setEmail       ] = useState("");
+  const [password,     setPassword    ] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [loading,      setLoading     ] = useState(false);
+  const [error,        setError       ] = useState("");
+  const [success,      setSuccess     ] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -27,12 +31,20 @@ const Login = () => {
 
       const { token, user } = response.data;
 
-      // Save token & user to localStorage
+      // 1. Persist auth
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // Set default Authorization header for all future requests
+      // 2. Set default header for all future axios calls
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // 3. Merge guest cart (or just fetch user cart if no guest session exists).
+      //    mergeGuestCart handles all 4 scenarios internally:
+      //      ✅ Guest had items + session_id valid  → merge then fetch
+      //      ✅ No guest session / session expired  → fetch user cart directly
+      //      ✅ User revisits with token            → fetch user cart directly
+      //      ✅ session_id expired, token missing   → (won't reach here; not logged in)
+      dispatch(mergeGuestCart(token));
 
       setSuccess("Login successful! Redirecting...");
       setTimeout(() => navigate("/"), 1200);
@@ -50,7 +62,7 @@ const Login = () => {
     <>
       <Header />
 
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-28">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
 
           {/* Card */}
@@ -216,6 +228,7 @@ const Login = () => {
           </p>
         </div>
       </div>
+      <Footer/>
     </>
   );
 };

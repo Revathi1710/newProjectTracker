@@ -12,6 +12,7 @@ import {
   clearCartAsync,
   fetchCart,
 } from "../store/cartSlice";
+import Footer from "../components/Footer";
 
 export default function CartPage() {
   const dispatch = useDispatch();
@@ -27,17 +28,24 @@ export default function CartPage() {
 
   if (loading && items.length === 0) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
-
+// FIX: Show spinner only while loading is true
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
   if (items.length === 0) {
     return (
       <>
         <Header />
-        <div className="min-h-screen bg-slate-50 text-slate-700 flex flex-col items-center justify-center gap-6 px-4">
+        <div className="min-h-screen bg-slate-25 text-slate-700 flex flex-col items-center justify-center gap-6 px-4">
           <div className="text-7xl opacity-20">🛒</div>
           <h2 className="text-2xl font-black text-slate-800">Your cart is empty</h2>
           <Link
@@ -55,7 +63,7 @@ export default function CartPage() {
     <>
       <Header />
 
-      <div className="min-h-screen bg-slate-50 text-slate-800 px-4 py-24">
+      <div className="min-h-screen bg-slate-25 text-slate-800 px-4 py-10">
         <div className="max-w-5xl mx-auto">
 
           {/* Page Title */}
@@ -179,6 +187,7 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+      <Footer/>
     </>
   );
 }

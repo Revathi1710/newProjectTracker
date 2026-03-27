@@ -1,505 +1,506 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useDispatch, useSelector } from "react-redux";
-import { addToCart, selectCartCount } from "../store/cartSlice";
+import { useDispatch } from "react-redux";
+import { addToCart } from "../store/cartSlice";
+import { setBuyNowProduct } from "../store/buyNowSlice"; // ← new slice
+import Header from "../components/Header";
 
-/* ─── tiny SVG icons ─────────────────────────────────────────────────────── */
-const Svg = ({ children, size = 18, ...p }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}>
-    {children}
-  </svg>
-);
-const IconCart    = () => <Svg><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></Svg>;
-const IconBolt    = () => <Svg><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></Svg>;
-const IconCheck   = () => <Svg strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></Svg>;
-const IconStar    = ({filled}) => <Svg fill={filled?"#f59e0b":"none"} stroke="#f59e0b"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></Svg>;
-const IconShare   = () => <Svg><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></Svg>;
-const IconHeart   = ({on}) => <Svg fill={on?"#ef4444":"none"} stroke={on?"#ef4444":"currentColor"}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></Svg>;
-const IconBack    = () => <Svg><path d="M19 12H5M5 12l7-7M5 12l7 7"/></Svg>;
-const IconShield  = () => <Svg><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></Svg>;
-const IconDownload= () => <Svg><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>;
-const IconRefresh = () => <Svg><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Svg>;
-const IconZoom    = () => <Svg><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></Svg>;
-const IconTag     = () => <Svg><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></Svg>;
-const IconInfo    = () => <Svg><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Svg>;
-
-/* ─── Spinner ────────────────────────────────────────────────────────────── */
-const Spinner = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-    style={{ animation: "spin .75s linear infinite" }}>
-    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-  </svg>
-);
-
-/* ─── Skeleton ───────────────────────────────────────────────────────────── */
-const Skeleton = () => (
-  <div className="min-h-screen bg-gray-50 animate-pulse">
-    <div className="h-14 bg-white border-b"/>
-    <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-12">
-      <div className="space-y-4">
-        <div className="aspect-square bg-gray-200 rounded-2xl"/>
-        <div className="grid grid-cols-4 gap-3">
-          {[...Array(4)].map((_,i)=><div key={i} className="aspect-square bg-gray-200 rounded-xl"/>)}
-        </div>
-      </div>
-      <div className="space-y-5 pt-4">
-        {[40,90,30,60,100,50,80].map((w,i)=>(
-          <div key={i} style={{width:`${w}%`}} className="h-4 bg-gray-200 rounded-full"/>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-/* ─── Toast ──────────────────────────────────────────────────────────────── */
-const Toast = ({ t }) => (
-  <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-semibold transition-all duration-400 ${
-    t.msg ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-  } ${t.type==="success" ? "bg-white border-emerald-200 text-emerald-700 shadow-emerald-100" : "bg-white border-red-200 text-red-600 shadow-red-100"}`}>
-    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-black ${t.type==="success"?"bg-emerald-500":"bg-red-500"}`}>
-      {t.type==="success" ? "✓" : "✕"}
-    </span>
-    {t.msg}
-  </div>
-);
-
-/* ─── Spec Row ───────────────────────────────────────────────────────────── */
-const Spec = ({ label, value }) => (
-  <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-    <span className="text-sm text-gray-500 font-medium">{label}</span>
-    <span className="text-sm text-gray-900 font-bold">{value || "—"}</span>
-  </div>
-);
-
-/* ─── Feature Card ───────────────────────────────────────────────────────── */
-const Feature = ({ icon, title, sub }) => (
-  <div className="flex items-start gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-    <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-gray-600 shrink-0 shadow-sm">
-      {icon}
-    </div>
-    <div>
-      <p className="text-xs font-bold text-gray-800">{title}</p>
-      <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{sub}</p>
-    </div>
-  </div>
-);
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════════════════════════════════════ */
 export default function ProductView() {
-  const { slug }     = useParams();
-  const navigate     = useNavigate();
-  const dispatch     = useDispatch();
-  const cartCount    = useSelector(selectCartCount);
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [product,  setProduct]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState(null);
-  const [mainImg,  setMainImg]  = useState(0);
-  const [liked,    setLiked]    = useState(false);
-  const [adding,   setAdding]   = useState(false);
-  const [buying,   setBuying]   = useState(false);
-  const [tab,      setTab]      = useState("description");
-  const [zoom,     setZoom]     = useState(false);
-  const [toast,    setToast]    = useState({ msg: "", type: "success" });
-  const [qty,      setQty]      = useState(1);
-
-  const flash = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast({ msg: "", type: "success" }), 3200);
-  };
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [mainImg, setMainImg] = useState(0);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [cartAdded, setCartAdded] = useState(false); // ✅ shows tick after add
+  const [buyingNow, setBuyingNow] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
   useEffect(() => {
     (async () => {
       try {
-        setLoading(true);
-        const { data } = await axios.get(`${import.meta.env.VITE_API_URL}/product-by-slug/${slug}`);
+        const { data } = await axios.get(
+          `${import.meta.env.VITE_API_URL}/product-by-slug/${slug}`
+        );
         setProduct(data.data);
-      } catch {
-        setError("Product not found.");
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoading(false);
       }
     })();
   }, [slug]);
 
-  const doAddToCart = async () => {
-    if (!product) return;
-    setAdding(true);
-    try {
-      await dispatch(addToCart({
-        product_id:   product.id,
-        name:         product.name,
-        price:        product.price,
-        active_price: product.active_price,
-        image:        product.images?.[0]?.path || null,
-        quantity:     qty,
-      })).unwrap();
-      flash("Added to cart!");
-    } catch {
-      flash("Failed to add.", "error");
-    } finally { setAdding(false); }
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
   };
 
-  const doBuyNow = async () => {
+  // ─── ADD TO CART ──────────────────────────────────────────────────────────
+  // Adds product to shared cart. User stays on this page and can keep shopping.
+  // Cart badge in header will update via fetchCart (called inside addToCart thunk).
+  const handleAddToCart = async () => {
     if (!product) return;
-    setBuying(true);
+    setAddingToCart(true);
     try {
-      await dispatch(addToCart({
-        product_id:   product.id,
-        name:         product.name,
-        price:        product.price,
-        active_price: product.active_price,
-        image:        product.images?.[0]?.path || null,
-        quantity:     qty,
-      })).unwrap();
-      navigate("/cart");
-    } catch {
-      flash("Failed.", "error");
-    } finally { setBuying(false); }
+      await dispatch(
+        addToCart({ product_id: product.id, quantity: 1 })
+      ).unwrap();
+      setCartAdded(true);
+      showToast("Added to cart! Continue shopping or go to cart.", "success");
+      // Reset tick after 3s so button is re-usable
+      setTimeout(() => setCartAdded(false), 3000);
+    } catch (err) {
+      showToast(typeof err === "string" ? err : "Failed to add to cart", "error");
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
-  /* ── guards ── */
-  if (loading) return <Skeleton />;
-  if (error || !product) return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-5">
-      <p className="text-5xl opacity-20">📦</p>
-      <p className="text-gray-500 font-medium">{error || "Something went wrong."}</p>
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-blue-600 font-semibold hover:underline">
-        <IconBack /> Go back
-      </button>
-    </div>
-  );
+  // ─── BUY NOW ─────────────────────────────────────────────────────────────
+  // Does NOT touch the cart at all.
+  // Stores only this product in buyNow Redux slice → navigates to /checkout.
+  // The checkout page reads from buyNow slice, not from the cart.
+  const handleBuyNow = () => {
+    if (!product) return;
+    setBuyingNow(true);
 
-  const images      = product.images || [];
-  const price       = Number(product.active_price || product.price);
-  const origPrice   = Number(product.price);
-  const hasDiscount = product.active_price && price < origPrice;
-  const discountPct = hasDiscount ? Math.round((1 - price / origPrice) * 100) : 0;
-  const inStock     = product.quantity > 0;
-  const highlights  = (product.highlights || "").split("\n").filter(l => l.trim());
+    // Save this single product to the buyNow slice (bypasses cart entirely)
+    dispatch(setBuyNowProduct({
+      id:           product.id,
+      name:         product.name,
+      price:        product.price,
+      active_price: product.active_price,
+      image:        product.images?.[0]?.path || null,
+      code:         product.code,
+      format:       product.format,
+    }));
+
+    // Navigate directly to checkout — cart is untouched, no API call needed
+    navigate("/checkout?flow=buynow");
+    // Note: setBuyingNow(false) is intentionally NOT called — component will unmount on navigate
+  };
+
+  /* ── Loading ── */
+  if (loading)
+    return (
+      <>
+        <Header />
+        <div style={{ paddingTop: 116 }} className="min-h-screen bg-[#F4F7FC] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-slate-500 font-medium text-sm tracking-wide">Loading product...</p>
+          </div>
+        </div>
+      </>
+    );
+
+  if (!product)
+    return (
+      <>
+        <Header />
+        <div style={{ paddingTop: 116 }} className="min-h-screen bg-[#F4F7FC] flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4">📭</div>
+            <p className="text-slate-500 font-semibold">Product not found.</p>
+          </div>
+        </div>
+      </>
+    );
+
+  const images = product.images || [];
+  const price = Number(product.active_price || product.price);
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <>
       <style>{`
-        @keyframes spin   { to { transform:rotate(360deg); } }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        .ani   { animation: fadeIn .4s ease both; }
-        .ani-1 { animation-delay:.04s }
-        .ani-2 { animation-delay:.10s }
-        .ani-3 { animation-delay:.16s }
-        .ani-4 { animation-delay:.22s }
-        .ani-5 { animation-delay:.28s }
+        @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700;800&display=swap');
+        .pv-wrap * { font-family: 'Barlow', sans-serif; }
+
+        /* Toast */
+        .pv-toast {
+          position: fixed; bottom: 32px; right: 32px; z-index: 9999;
+          display: flex; align-items: center; gap: 12px;
+          background: #fff; border-radius: 14px; padding: 14px 20px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+          transform: translateY(80px); opacity: 0;
+          transition: all 0.35s cubic-bezier(.34,1.56,.64,1);
+          pointer-events: none;
+        }
+        .pv-toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .pv-toast.success { border-left: 4px solid #22c55e; }
+        .pv-toast.error   { border-left: 4px solid #ef4444; }
+
+        /* Thumbnails scrollbar */
+        .thumb-row::-webkit-scrollbar { height: 4px; }
+        .thumb-row::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* Sticky image panel */
+        @media (min-width: 1024px) {
+          .img-sticky { position: sticky; top: 100px; }
+        }
+
+        /* Add to cart hover */
+        .btn-cart {
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          flex: 1; padding: 15px 24px; border-radius: 12px;
+          border: 2px solid #1e3a8a; color: #1e3a8a;
+          font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          background: #fff; cursor: pointer;
+          transition: all 0.22s ease; position: relative; overflow: hidden;
+        }
+        .btn-cart:hover { background: #1e3a8a; color: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(30,58,138,0.25); }
+        .btn-cart:active { transform: scale(0.97); }
+        .btn-cart:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .btn-buy {
+          display: flex; align-items: center; justify-content: center; gap: 10px;
+          flex: 1; padding: 15px 24px; border-radius: 12px;
+          background: #2563eb; color: #fff;
+          font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+          border: 2px solid transparent; cursor: pointer;
+          transition: all 0.22s ease;
+          box-shadow: 0 4px 18px rgba(37,99,235,0.35);
+        }
+        .btn-buy:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37,99,235,0.45); }
+        .btn-buy:active { transform: scale(0.97); }
+        .btn-buy:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* Spec grid */
+        .spec-item { padding: 14px 0; border-bottom: 1px solid #f1f5f9; }
+        .spec-item:last-child { border-bottom: none; }
+
+        /* Section heading */
+        .sec-label {
+          font-size: 10px; font-weight: 800; letter-spacing: 0.2em;
+          text-transform: uppercase; color: #2563eb; margin-bottom: 12px;
+        }
+
+        /* Trust badges */
+        .badge {
+          display: flex; align-items: center; gap: 8px;
+          padding: 10px 14px; border-radius: 10px;
+          background: #f0f7ff; border: 1px solid #dbeafe;
+          font-size: 12px; font-weight: 600; color: #1e40af;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #94a3b8; font-weight: 500; margin-bottom: 28px; }
+        .breadcrumb span { cursor: pointer; transition: color 0.2s; }
+        .breadcrumb span:hover { color: #2563eb; }
+        .breadcrumb-sep { color: #cbd5e1; }
       `}</style>
 
-      <Toast t={toast} />
-
-      {/* ── Zoom overlay ── */}
-      {zoom && images[mainImg] && (
-        <div onClick={() => setZoom(false)}
-          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-8 cursor-zoom-out">
-          <img
-            src={`${import.meta.env.VITE_SERVER_URL}/storage/${images[mainImg].path}`}
-            alt="zoom"
-            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
-          />
-          <button onClick={() => setZoom(false)}
-            className="absolute top-5 right-5 w-10 h-10 bg-white/10 text-white rounded-full text-lg hover:bg-white/20 transition flex items-center justify-center">
-            ✕
-          </button>
+      {/* Toast */}
+      <div className={`pv-toast ${toast.type} ${toast.show ? "show" : ""}`}>
+        {toast.type === "success" ? (
+          <div style={{ background: "#dcfce7", borderRadius: 8, padding: 6 }}>
+            <svg width="16" height="16" fill="none" stroke="#16a34a" strokeWidth="3" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        ) : (
+          <div style={{ background: "#fee2e2", borderRadius: 8, padding: 6 }}>
+            <svg width="16" height="16" fill="none" stroke="#dc2626" strokeWidth="3" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+        )}
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: "#1e293b", margin: 0 }}>{toast.message}</p>
+          {toast.type === "success" && (
+            <button
+              onClick={() => navigate("/cart")}
+              style={{ fontSize: 12, color: "#2563eb", fontWeight: 700, background: "none", border: "none", padding: 0, cursor: "pointer", marginTop: 2 }}
+            >
+              View Cart →
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* ══ TOPBAR ══ */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <nav className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">
-            <Link to="/" className="hover:text-gray-700 transition-colors">Home</Link>
-            <span className="text-gray-300">›</span>
-            <Link to="/products" className="hover:text-gray-700 transition-colors">Products</Link>
-            <span className="text-gray-300">›</span>
-            <span className="text-gray-800 font-semibold truncate max-w-[180px]">{product.name}</span>
+      <div className="pv-wrap bg-[#F4F7FC] min-h-screen">
+        <Header />
+
+        <main className="max-w-7xl mx-auto px-4 pt-6 md:px-8 pb-24">
+
+          {/* Breadcrumb */}
+          <nav className="breadcrumb">
+            <span onClick={() => navigate("/")}>Home</span>
+          
+            <span className="breadcrumb-sep">›</span>
+            <span style={{ color: "#475569", cursor: "default" }}>{product.name}</span>
           </nav>
-          <button onClick={() => navigate("/cart")}
-            className="relative flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs font-bold transition shadow-sm">
-            <IconCart />
-            Cart
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </header>
 
-      {/* ══ MAIN ══ */}
-      <main className="max-w-6xl mx-auto px-4 py-8 pb-24">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
 
-        {/* Back */}
-        <button onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-blue-600 font-semibold mb-6 transition-colors group">
-          <span className="group-hover:-translate-x-0.5 transition-transform"><IconBack /></span>
-          Back to Products
-        </button>
+            {/* ── LEFT: Image Panel ── */}
+            <div className="lg:col-span-5 img-sticky space-y-4">
 
-        {/* ══ PRODUCT GRID ══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] gap-10 items-start">
+              {/* Main Image */}
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 2px 20px rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 420,
+                  padding: 24,
+                }}
+              >
+                {images.length > 0 ? (
+                  <img
+                    src={`${import.meta.env.VITE_SERVER_URL}/storage/${images[mainImg].path}`}
+                    alt={product.name}
+                    style={{
+                      maxWidth: "100%", maxHeight: 460,
+                      width: "auto", height: "auto",
+                      objectFit: "contain",
+                      transition: "transform 0.4s ease",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.transform = "scale(1.03)"}
+                    onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+                  />
+                ) : (
+                  <div style={{ textAlign: "center", color: "#94a3b8" }}>
+                    <div style={{ fontSize: 48, marginBottom: 8 }}>📊</div>
+                    <p style={{ fontSize: 13 }}>No image available</p>
+                  </div>
+                )}
+              </div>
 
-          {/* LEFT: Images */}
-          <div className="ani ani-1">
-            {/* Main image */}
-            <div
-              className="relative bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden aspect-[4/3] group cursor-zoom-in mb-3"
-              onClick={() => images.length > 0 && setZoom(true)}>
-              {images.length > 0 ? (
-                <img
-                  src={`${import.meta.env.VITE_SERVER_URL}/storage/${images[mainImg].path}`}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-50 to-slate-100 flex flex-col items-center justify-center gap-3 text-slate-300">
-                  <span className="text-6xl">📊</span>
-                  <span className="text-sm font-medium opacity-60">No image</span>
+              {/* Thumbnails */}
+              {images.length > 1 && (
+                <div className="thumb-row" style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+                  {images.map((img, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setMainImg(i)}
+                      style={{
+                        flexShrink: 0,
+                        width: 72, height: 72,
+                        borderRadius: 12,
+                        border: mainImg === i ? "2px solid #2563eb" : "2px solid #e2e8f0",
+                        background: "#fff",
+                        padding: 6,
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        boxShadow: mainImg === i ? "0 0 0 3px rgba(37,99,235,0.15)" : "none",
+                        opacity: mainImg === i ? 1 : 0.6,
+                      }}
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_SERVER_URL}/storage/${img.path}`}
+                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        alt=""
+                      />
+                    </button>
+                  ))}
                 </div>
               )}
 
-              {/* Badges */}
-              <div className="absolute top-3 left-3 flex flex-col gap-2">
-                {hasDiscount && (
-                  <span className="px-2.5 py-1 bg-red-500 text-white text-[11px] font-black rounded-lg shadow-md">
-                    -{discountPct}% OFF
+              {/* Trust Badges */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, paddingTop: 8 }}>
+                <div className="badge">
+                  <svg width="15" height="15" fill="none" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Verified Data
+                </div>
+                <div className="badge">
+                  <svg width="15" height="15" fill="none" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Instant Download
+                </div>
+                <div className="badge">
+                  <svg width="15" height="15" fill="none" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Email Delivery
+                </div>
+                <div className="badge">
+                  <svg width="15" height="15" fill="none" stroke="#2563eb" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  24/7 Support
+                </div>
+              </div>
+            </div>
+
+            {/* ── RIGHT: Details ── */}
+            <div className="lg:col-span-7">
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 2px 20px rgba(0,0,0,0.05)",
+                  padding: "36px 36px",
+                }}
+              >
+                {/* Code + Format badges */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                  <span style={{
+                    background: "#1e3a8a", color: "#fff",
+                    fontSize: 10, fontWeight: 800,
+                    padding: "5px 12px", borderRadius: 6,
+                    letterSpacing: "0.12em", textTransform: "uppercase",
+                  }}>
+                    {product.code}
                   </span>
-                )}
-                <span className={`px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-sm ${
-                  inStock ? "bg-emerald-500 text-white" : "bg-gray-500 text-white"
-                }`}>
-                  {inStock ? "In Stock" : "Out of Stock"}
-                </span>
-              </div>
+                  <span style={{
+                    background: "#eff6ff", color: "#2563eb",
+                    fontSize: 10, fontWeight: 700,
+                    padding: "5px 12px", borderRadius: 6,
+                    letterSpacing: "0.1em", textTransform: "uppercase",
+                    border: "1px solid #bfdbfe",
+                  }}>
+                    {product.format || "Excel Report"}
+                  </span>
+                </div>
 
-              {/* Zoom hint */}
-              <div className="absolute bottom-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-lg flex items-center justify-center text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shadow">
-                <IconZoom />
-              </div>
+                {/* Product Name */}
+                <h1 style={{
+                  fontSize: 26, fontWeight: 800, color: "#0f172a",
+                  lineHeight: 1.3, marginBottom: 20,
+                }}>
+                  {product.name}
+                </h1>
 
-              {/* Like + Share */}
-              <div className="absolute top-3 right-3 flex flex-col gap-2">
-                <button onClick={(e) => { e.stopPropagation(); setLiked(l => !l); }}
-                  className="w-9 h-9 bg-white/90 rounded-xl flex items-center justify-center shadow border border-gray-100 hover:scale-110 transition-transform">
-                  <IconHeart on={liked} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(window.location.href); flash("Link copied!"); }}
-                  className="w-9 h-9 bg-white/90 rounded-xl flex items-center justify-center shadow border border-gray-100 hover:scale-110 transition-transform text-gray-500">
-                  <IconShare />
-                </button>
-              </div>
-            </div>
+                {/* Price */}
+                <div style={{
+                  display: "flex", alignItems: "baseline", gap: 12,
+                  paddingBottom: 24, marginBottom: 24,
+                  borderBottom: "2px solid #f1f5f9",
+                }}>
+                  <span style={{ fontSize: 38, fontWeight: 800, color: "#0f172a", lineHeight: 1 }}>
+                    ₹{price.toLocaleString("en-IN")}
+                  </span>
+                  <span style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>incl. taxes</span>
+                </div>
 
-            {/* Thumbnails */}
-            {images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                {images.map((img, i) => (
-                  <button key={i} onClick={() => setMainImg(i)}
-                    className={`shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${
-                      mainImg === i
-                        ? "border-blue-500 scale-105 shadow-md shadow-blue-100"
-                        : "border-gray-200 hover:border-blue-300 opacity-70 hover:opacity-100"
-                    }`}>
-                    <img
-                      src={`${import.meta.env.VITE_SERVER_URL}/storage/${img.path}`}
-                      alt={`img-${i}`}
-                      className="w-full h-full object-cover"
-                    />
+                {/* Specs Grid */}
+                <div style={{ marginBottom: 28 }}>
+                  <p className="sec-label">Specifications</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+                    {[
+                      { label: "Report Format", value: product.format || "Digital Download" },
+                      { label: "Project Count",  value: product.total_projects || "Premium" },
+                      { label: "Published",      value: product.published_in || "N/A" },
+                      { label: "Project Code",   value: product.code },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="spec-item">
+                        <p style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "#94a3b8", marginBottom: 3 }}>
+                          {label}
+                        </p>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── ACTION BUTTONS ── */}
+                <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+                  {/* Add to Cart — stays on page, user keeps shopping */}
+                  <button
+                    className="btn-cart"
+                    onClick={handleAddToCart}
+                    disabled={addingToCart || buyingNow}
+                    style={cartAdded ? { background: "#f0fdf4", borderColor: "#22c55e", color: "#16a34a" } : {}}
+                  >
+                    {addingToCart ? (
+                      <>
+                        <div style={{ width: 18, height: 18, border: "2px solid #1e3a8a", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                        Adding...
+                      </>
+                    ) : cartAdded ? (
+                      <>
+                        <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Added to Cart ✓
+                      </>
+                    ) : (
+                      <>
+                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                          <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+                        </svg>
+                        Add to Cart
+                      </>
+                    )}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* RIGHT: Info */}
-          <div className="flex flex-col gap-5">
+                  {/* Buy Now — instant, bypasses cart, goes straight to /checkout */}
+                  <button
+                    className="btn-buy"
+                    onClick={handleBuyNow}
+                    disabled={addingToCart || buyingNow}
+                  >
+                    {buyingNow ? (
+                      <>
+                        <div style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                        Redirecting...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                        </svg>
+                        Buy It Now
+                      </>
+                    )}
+                  </button>
+                </div>
 
-            {/* Badges */}
-            <div className="ani ani-1 flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 text-[11px] font-bold rounded-lg border border-gray-200">
-                <IconTag /> {product.code}
-              </span>
-              {product.format && (
-                <span className="px-3 py-1 bg-blue-50 text-blue-700 text-[11px] font-bold rounded-lg border border-blue-100">
-                  {product.format}
-                </span>
-              )}
-              {product.status === "active"
-                ? <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-lg border border-emerald-100">● Available</span>
-                : <span className="px-3 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-lg border border-gray-200">Unavailable</span>
-              }
-            </div>
+                <p style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500, textAlign: "center", marginBottom: 32 }}>
+                  🔒 Secure payment · Files delivered instantly to your email after purchase.
+                </p>
 
-            {/* Title */}
-            <h1 className="ani ani-2 text-2xl font-black text-gray-900 leading-snug tracking-tight">
-              {product.name}
-            </h1>
+                {/* Description */}
+                <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 28, marginBottom: 24 }}>
+                  <p className="sec-label">Report Description</p>
+                  <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.8, fontWeight: 400 }}>
+                    {product.description || "Intelligence data and project leads tailored for industrial development."}
+                  </p>
+                </div>
 
-            {/* Stars */}
-            <div className="ani ani-2 flex items-center gap-1">
-              {[...Array(5)].map((_,i) => <IconStar key={i} filled={true} />)}
-              <span className="text-xs text-gray-400 ml-1.5 font-semibold">4.9 · 128 reviews</span>
-            </div>
-
-            <div className="border-t border-dashed border-gray-200"/>
-
-            {/* Price */}
-            <div className="ani ani-3">
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-3xl font-black text-gray-900">
-                  ₹{price.toLocaleString("en-IN")}
-                </span>
-                {hasDiscount && (
-                  <>
-                    <span className="text-lg text-gray-400 line-through font-medium">
-                      ₹{origPrice.toLocaleString("en-IN")}
-                    </span>
-                    <span className="px-2.5 py-0.5 bg-red-100 text-red-600 text-xs font-black rounded-lg">
-                      Save {discountPct}%
-                    </span>
-                  </>
+                {/* Highlights */}
+                {product.highlights && (
+                  <div>
+                    <p className="sec-label">Core Highlights</p>
+                    <div style={{
+                      background: "#f8faff",
+                      border: "1px solid #e0eaff",
+                      borderLeft: "4px solid #2563eb",
+                      borderRadius: "0 12px 12px 0",
+                      padding: "16px 20px",
+                      fontSize: 14, color: "#334155",
+                      lineHeight: 1.8,
+                      whiteSpace: "pre-line",
+                    }}>
+                      {product.highlights}
+                    </div>
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">Inclusive of all taxes · Digital delivery</p>
-            </div>
-
-            {/* Specs table */}
-            <div className="ani ani-3 bg-white rounded-xl border border-gray-200 px-5 py-1 shadow-sm">
-              <Spec label="Product Code"   value={product.code} />
-              <Spec label="Published In"   value={product.published_in} />
-              <Spec label="Format"         value={product.format} />
-              <Spec label="Total Projects" value={product.total_projects ? `${product.total_projects} projects` : null} />
-              <Spec label="Stock"          value={inStock ? `${product.quantity} copies available` : "Out of stock"} />
-            </div>
-
-            {/* Quantity */}
-            <div className="ani ani-4 flex items-center gap-3">
-              <span className="text-sm text-gray-600 font-semibold">Qty:</span>
-              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                <button onClick={() => setQty(q => Math.max(1, q-1))}
-                  className="w-10 h-10 text-gray-500 hover:bg-gray-100 transition text-lg font-bold">−</button>
-                <span className="w-10 text-center text-sm font-bold text-gray-800">{qty}</span>
-                <button onClick={() => setQty(q => q+1)}
-                  className="w-10 h-10 text-gray-500 hover:bg-gray-100 transition text-lg font-bold">+</button>
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="ani ani-4 flex flex-col gap-3">
-              <button onClick={doAddToCart}
-                disabled={adding || !inStock || product.status !== "active"}
-                className={`w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-black text-sm border-2 border-gray-900 text-gray-900 bg-white
-                  hover:bg-gray-900 hover:text-white transition-all duration-200 active:scale-[0.98]
-                  ${adding || !inStock || product.status !== "active" ? "opacity-50 cursor-not-allowed" : ""}`}>
-                {adding ? <Spinner /> : <IconCart />}
-                {adding ? "Adding…" : "Add to Cart"}
-              </button>
-
-              <button onClick={doBuyNow}
-                disabled={buying || !inStock || product.status !== "active"}
-                className={`w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-black text-sm bg-blue-600 text-white
-                  hover:bg-blue-700 transition-all duration-200 active:scale-[0.98] shadow-lg shadow-blue-200
-                  ${buying || !inStock || product.status !== "active" ? "opacity-50 cursor-not-allowed" : ""}`}>
-                {buying ? <Spinner /> : <IconBolt />}
-                {buying ? "Processing…" : "Buy It Now"}
-              </button>
-            </div>
-
-            {/* Trust row */}
-            <div className="ani ani-5 grid grid-cols-3 gap-2">
-              <Feature icon={<IconShield />}   title="Verified"      sub="100% accurate data" />
-              <Feature icon={<IconDownload />} title="Instant"       sub="Download after pay" />
-              <Feature icon={<IconRefresh />}  title="Updates"       sub="Free within 30 days" />
             </div>
 
           </div>
-        </div>
+        </main>
+      </div>
 
-        {/* ══ TABS ══ */}
-        <div className="mt-12 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-200 bg-gray-50">
-            {[
-              { id: "description", label: "Description" },
-              { id: "highlights",  label: "Highlights" },
-              { id: "specs",       label: "Specifications" },
-            ].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={`flex-1 py-3.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
-                  tab === t.id
-                    ? "border-blue-600 text-blue-600 bg-white"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                }`}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="p-7 min-h-[180px]">
-            {tab === "description" && (
-              <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-line max-w-3xl">
-                {product.description || <span className="text-gray-400 italic">No description available.</span>}
-              </div>
-            )}
-
-            {tab === "highlights" && (
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl">
-                {highlights.length > 0 ? highlights.map((h, i) => (
-                  <li key={i} className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-gray-700">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
-                      <IconCheck />
-                    </span>
-                    {h.replace(/^[•\-\d.]+\s*/, "")}
-                  </li>
-                )) : (
-                  <li className="text-gray-400 italic text-sm">No highlights listed.</li>
-                )}
-              </ul>
-            )}
-
-            {tab === "specs" && (
-              <div className="max-w-lg">
-                <Spec label="Product Code"   value={product.code} />
-                <Spec label="Name"           value={product.name} />
-                <Spec label="Published In"   value={product.published_in} />
-                <Spec label="Format"         value={product.format} />
-                <Spec label="Total Projects" value={product.total_projects} />
-                <Spec label="Status"         value={product.status} />
-                <Spec label="Price"          value={`₹${price.toLocaleString("en-IN")}`} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ══ INFO BANNER ══ */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { icon: <IconShield />,   t: "Secure Payment",   s: "256-bit SSL encryption on all transactions" },
-            { icon: <IconDownload />, t: "Digital Delivery", s: "Instant download after successful payment" },
-            { icon: <IconInfo />,     t: "Need help?",       s: "Contact support before purchasing" },
-          ].map((item, i) => (
-            <div key={i} className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                {item.icon}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-800">{item.t}</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">{item.s}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-      </main>
-    </div>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </>
   );
 }

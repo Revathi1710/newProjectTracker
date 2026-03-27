@@ -10,6 +10,7 @@ use App\Services\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -19,18 +20,15 @@ class ProductController extends Controller
 
     // ─────────────────────────────────────────────
     // GET /api/products
-    // List products with optional filters & pagination
     // ─────────────────────────────────────────────
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Product::with('images');
 
-        // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Search by name or code
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -39,7 +37,6 @@ class ProductController extends Controller
             });
         }
 
-        // Sorting
         $sortBy  = in_array($request->sort_by, ['name', 'price', 'quantity', 'created_at']) ? $request->sort_by : 'created_at';
         $sortDir = $request->sort_dir === 'asc' ? 'asc' : 'desc';
         $query->orderBy($sortBy, $sortDir);
@@ -51,13 +48,13 @@ class ProductController extends Controller
 
     // ─────────────────────────────────────────────
     // POST /api/products
-    // Create a new product
     // ─────────────────────────────────────────────
     public function store(StoreProductRequest $request): JsonResponse
     {
         $product = $this->service->create(
             $request->validated(),
-            $request->file('images', [])
+            $request->file('images', []),
+            $request->file('excel_file')   // null if not uploaded
         );
 
         return response()->json([
@@ -68,7 +65,6 @@ class ProductController extends Controller
 
     // ─────────────────────────────────────────────
     // GET /api/products/{product}
-    // Show a single product
     // ─────────────────────────────────────────────
     public function show(Product $product): JsonResponse
     {
@@ -78,25 +74,24 @@ class ProductController extends Controller
             'data' => new ProductResource($product),
         ]);
     }
-// ─────────────────────────────────────────────
-// GET /api/product-by-slug/{slug}
-// Frontend: show single product by slug
-// ─────────────────────────────────────────────
-public function showBySlug(string $slug): JsonResponse
-{
-    $product = Product::with('images')
-        ->where('slug', $slug)
-        ->where('status', 'active')
-        ->firstOrFail();
 
-    return response()->json([
-        'data' => new ProductResource($product),
-    ]);
-}
+    // ─────────────────────────────────────────────
+    // GET /api/product-by-slug/{slug}
+    // ─────────────────────────────────────────────
+    public function showBySlug(string $slug): JsonResponse
+    {
+        $product = Product::with('images')
+            ->where('slug', $slug)
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        return response()->json([
+            'data' => new ProductResource($product),
+        ]);
+    }
 
     // ─────────────────────────────────────────────
     // PUT /api/products/{product}
-    // Update an existing product
     // ─────────────────────────────────────────────
     public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
@@ -104,7 +99,9 @@ public function showBySlug(string $slug): JsonResponse
             $product,
             $request->validated(),
             $request->file('images', []),
-            $request->input('remove_images', [])
+            $request->input('remove_images', []),
+            $request->file('excel_file'),                          // null if not sent
+            (bool) $request->input('remove_excel', false)         // explicit delete flag
         );
 
         return response()->json([
@@ -115,7 +112,6 @@ public function showBySlug(string $slug): JsonResponse
 
     // ─────────────────────────────────────────────
     // DELETE /api/products/{product}
-    // Soft-delete a product
     // ─────────────────────────────────────────────
     public function destroy(Product $product): JsonResponse
     {
@@ -124,5 +120,21 @@ public function showBySlug(string $slug): JsonResponse
         return response()->json([
             'message' => 'Product deleted successfully.',
         ]);
+    }
+
+    // ─────────────────────────────────────────────
+    // GET /api/products/{product}/download-excel
+    // Stream the Excel file as a download
+    // ─────────────────────────────────────────────
+    public function downloadExcel(Product $product): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
+    {
+        if (!$product->excel_path || !Storage::disk('public')->exists($product->excel_path)) {
+            return response()->json(['message' => 'No Excel file found for this product.'], 404);
+        }
+
+        return Storage::disk('public')->download(
+            $product->excel_path,
+            $product->excel_original_name ?? $product->excel_filename
+        );
     }
 }

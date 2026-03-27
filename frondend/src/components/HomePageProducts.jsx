@@ -5,6 +5,7 @@ import React from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { addToCart, selectCartCount } from "../store/cartSlice";
+import BannerSection from "./BannerSection";
 
 export default function HomePageProducts() {
   const [searchParams] = useSearchParams();
@@ -92,67 +93,7 @@ export default function HomePageProducts() {
         </div>
       </div>
 
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-32 pb-20 px-4 overflow-hidden bg-white border-b border-slate-100">
-        {/* Subtle blue ambient glows */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-80 bg-blue-500/8 blur-[100px] rounded-full -z-10"></div>
-        <div className="absolute -top-16 -right-16 w-72 h-72 bg-blue-400/6 blur-[80px] rounded-full -z-10"></div>
-
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200 mb-6">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-700">
-              Market Intelligence 2026
-            </span>
-          </div>
-
-          <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tight mb-6 leading-[1.1]">
-            India's Leading{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-700">
-              Project Data
-            </span>{" "}
-            Store
-          </h1>
-
-          <p className="text-lg text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Gain a competitive edge with verified leads in Infrastructure, Manufacturing, and Energy sectors.
-          </p>
-
-          {/* Search Bar */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setPage(1);
-            }}
-            className="flex flex-col md:flex-row max-w-2xl mx-auto gap-3 p-2 rounded-2xl bg-white border border-slate-200 shadow-lg shadow-slate-100"
-          >
-            <div className="flex-1 flex items-center px-4 gap-3">
-              <svg className="w-5 h-5 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by state, sector or report..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full bg-transparent text-slate-800 placeholder:text-slate-400 outline-none py-3 text-sm font-medium"
-              />
-            </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold px-8 py-3 rounded-xl transition-all active:scale-95 shadow-md shadow-blue-200">
-              SEARCH
-            </button>
-          </form>
-        </div>
-      </section>
-
+<BannerSection/>
       {/* 2. MAIN CONTENT */}
       <main className="max-w-7xl mx-auto px-4 md:px-8 pb-24">
 

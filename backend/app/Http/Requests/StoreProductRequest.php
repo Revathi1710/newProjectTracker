@@ -6,17 +6,11 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProductRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return true; // Add admin auth check here if needed
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     */
     public function rules(): array
     {
         return [
@@ -32,15 +26,21 @@ class StoreProductRequest extends FormRequest
             'price'          => ['required', 'numeric', 'min:0', 'max:9999999.99'],
             'quantity'       => ['required', 'integer', 'min:0'],
 
-            // Images array — each must be a valid image file
+            // Product images
             'images'         => ['nullable', 'array', 'max:10'],
-            'images.*'       => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'], // 10 MB each
+            'images.*'       => ['image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+
+            // Excel / CSV data file (optional, single file)
+           
+            'excel_file' => [
+    'nullable',
+    'file',
+    'mimetypes:application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/csv,text/plain,application/octet-stream',
+    'max:20480',
+],
         ];
     }
 
-    /**
-     * Custom human-readable attribute names.
-     */
     public function attributes(): array
     {
         return [
@@ -56,20 +56,20 @@ class StoreProductRequest extends FormRequest
             'quantity'       => 'Quantity',
             'images'         => 'Product Images',
             'images.*'       => 'Image',
+            'excel_file'     => 'Excel File',
         ];
     }
 
-    /**
-     * Custom error messages.
-     */
     public function messages(): array
     {
         return [
-            'code.unique'       => 'This product code is already in use. Please choose a different one.',
-            'price.min'         => 'Price cannot be negative.',
-            'quantity.min'      => 'Quantity cannot be negative.',
-            'images.*.image'    => 'Each uploaded file must be a valid image.',
-            'images.*.max'      => 'Each image must not exceed 10 MB.',
+            'code.unique'          => 'This product code is already in use. Please choose a different one.',
+            'price.min'            => 'Price cannot be negative.',
+            'quantity.min'         => 'Quantity cannot be negative.',
+            'images.*.image'       => 'Each uploaded file must be a valid image.',
+            'images.*.max'         => 'Each image must not exceed 10 MB.',
+            'excel_file.mimes'     => 'The data file must be an Excel (.xlsx, .xls) or CSV file.',
+            'excel_file.max'       => 'The Excel file must not exceed 20 MB.',
         ];
     }
 }

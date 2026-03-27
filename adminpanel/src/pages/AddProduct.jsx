@@ -16,6 +16,13 @@ const RedoIcon  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="no
 const UploadIcon= () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>;
 const CloseIcon = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const SlugIcon  = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>;
+const ExcelIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18M3 15h18M9 3v18" />
+    <path d="M12 12l3 3M15 12l-3 3" strokeWidth="1.5" />
+  </svg>
+);
 const Spinner   = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
     style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }}>
@@ -29,6 +36,12 @@ const generateSlug = (text) =>
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const formatFileSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 // ── Axios ──────────────────────────────────────────────────────────────────────
 const api = axios.create({
@@ -172,6 +185,108 @@ const Toast = ({ msg, type }) => {
   );
 };
 
+// ── Excel Upload Card ──────────────────────────────────────────────────────────
+const ExcelUploadCard = ({ excelFile, onFileSelect, onRemove, error, dragActive, onDragEnter, onDragLeave, onDrop }) => {
+  const fileRef = useRef(null);
+
+  const EXCEL_MIME = [
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+  ];
+
+  const handleChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onFileSelect(file);
+    e.target.value = "";
+  };
+
+  const getExtBadge = (name) => {
+    const ext = name.split(".").pop().toUpperCase();
+    const colors = { XLSX: "bg-green-100 text-green-700", XLS: "bg-green-100 text-green-700", CSV: "bg-blue-100 text-blue-700" };
+    return (
+      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colors[ext] ?? "bg-gray-100 text-gray-600"}`}>
+        {ext}
+      </span>
+    );
+  };
+
+  return (
+    <Card title="Excel / Data File">
+      {!excelFile ? (
+        <div
+          onDragEnter={onDragEnter}
+          onDragOver={e => e.preventDefault()}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          onClick={() => fileRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition-all
+            ${dragActive
+              ? "border-green-400 bg-green-50 scale-[1.01]"
+              : "border-green-200 bg-green-50/40 hover:bg-green-50 hover:border-green-400"
+            }`}
+        >
+          <div className="flex justify-center text-green-400 mb-3">
+            <ExcelIcon />
+          </div>
+          <p className="text-sm font-semibold text-green-600">
+            {dragActive ? "Drop file here…" : "Click or drag & drop"}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">.xlsx · .xls · .csv &nbsp;·&nbsp; max 20 MB</p>
+        </div>
+      ) : (
+        <div className="border border-green-200 rounded-xl p-4 bg-green-50/60">
+          {/* File info row */}
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+              <ExcelIcon />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-gray-800 truncate max-w-[160px]">{excelFile.name}</p>
+                {getExtBadge(excelFile.name)}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">{formatFileSize(excelFile.size)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="w-7 h-7 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 transition-colors shrink-0"
+              title="Remove file"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          {/* Replace button */}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="mt-3 w-full text-xs py-1.5 rounded-lg border border-dashed border-green-300 text-green-600 bg-white hover:bg-green-50 transition-colors font-medium"
+          >
+            ↺ Replace file
+          </button>
+        </div>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+        className="hidden"
+        onChange={handleChange}
+      />
+
+      {error && <p className="text-[11px] text-red-500 mt-2">{error}</p>}
+
+      {/* Helper tip */}
+      <p className="text-[11px] text-gray-400 mt-3 leading-relaxed">
+        Upload the product's associated Excel/CSV data file. It will be stored securely and available for download.
+      </p>
+    </Card>
+  );
+};
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function AddProduct() {
   const initialForm = {
@@ -182,10 +297,12 @@ export default function AddProduct() {
 
   const [form,       setForm]       = useState(initialForm);
   const [images,     setImages]     = useState([]);
+  const [excelFile,  setExcelFile]  = useState(null);   // ← NEW: single excel file
   const [errors,     setErrors]     = useState({});
   const [loading,    setLoading]    = useState(false);
   const [slugLocked, setSlugLocked] = useState(false);
   const [toast,      setToast]      = useState({ msg: "", type: "success" });
+  const [dragActive, setDragActive] = useState(false);  // ← NEW: drag state
   const fileRef = useRef(null);
 
   const set = k => v => setForm(f => ({ ...f, [k]: v }));
@@ -218,6 +335,33 @@ export default function AddProduct() {
     setImages(prev => { URL.revokeObjectURL(prev[idx].preview); return prev.filter((_, i) => i !== idx); });
   };
 
+  // ── Excel handlers ─────────────────────────────────────────────────────────
+  const EXCEL_EXTENSIONS = [".xlsx", ".xls", ".csv"];
+  const isValidExcel = (file) => {
+    const name = file.name.toLowerCase();
+    return EXCEL_EXTENSIONS.some(ext => name.endsWith(ext));
+  };
+
+  const handleExcelSelect = (file) => {
+    if (!isValidExcel(file)) {
+      flash("Only .xlsx, .xls, or .csv files are allowed.", "error");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      flash("Excel file must be under 20 MB.", "error");
+      return;
+    }
+    setExcelFile(file);
+    setErrors(prev => ({ ...prev, excel_file: null }));
+  };
+
+  const handleExcelDrop = (e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleExcelSelect(file);
+  };
+
   const save = async () => {
     setErrors({});
     setLoading(true);
@@ -225,9 +369,18 @@ export default function AddProduct() {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v !== "" && v != null) fd.append(k, v); });
       images.forEach(({ file }) => fd.append("images[]", file));
+
+      // ← Append Excel file if selected
+      if (excelFile) {
+        fd.append("excel_file", excelFile);
+      }
+
       const { data } = await api.post("/products", fd, { headers: { "Content-Type": "multipart/form-data" } });
       flash(`✓ "${data.data.name}" saved successfully!`);
-      setForm(initialForm); setImages([]); setSlugLocked(false);
+      setForm(initialForm);
+      setImages([]);
+      setExcelFile(null);
+      setSlugLocked(false);
     } catch (err) {
       if (err.response?.status === 422) {
         const flat = {};
@@ -251,13 +404,10 @@ export default function AddProduct() {
 
       <Toast msg={toast.msg} type={toast.type} />
 
-      {/* ── Sidebar — identical to AllProduct ── */}
       <Sidebar />
 
-      {/* ── Main scrollable area ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Topbar — matches AllProduct page style (light, not dark) */}
         <header className="bg-white border-b border-gray-200 px-7 h-14 flex items-center justify-between shrink-0">
           <nav className="flex items-center gap-2 text-sm text-gray-500">
             <span className="text-gray-700 font-medium">Dashboard</span>
@@ -266,14 +416,11 @@ export default function AddProduct() {
             <span className="text-gray-300">/</span>
             <span className="text-blue-600 font-semibold">Add New</span>
           </nav>
-         
         </header>
 
-        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-7 py-7">
           <div className="max-w-[1260px] mx-auto">
 
-            {/* Page heading */}
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Add New Product</h1>
@@ -281,7 +428,7 @@ export default function AddProduct() {
               </div>
               <div className="flex gap-2.5">
                 <button type="button"
-                  onClick={() => { setForm(initialForm); setImages([]); setErrors({}); setSlugLocked(false); }}
+                  onClick={() => { setForm(initialForm); setImages([]); setExcelFile(null); setErrors({}); setSlugLocked(false); }}
                   className="text-sm px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 font-medium hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
@@ -358,7 +505,7 @@ export default function AddProduct() {
               {/* ── RIGHT ── */}
               <div className="flex flex-col gap-5">
 
-                {/* Image */}
+                {/* Image upload */}
                 <Card title="Product Image">
                   {images.length === 0 ? (
                     <div onClick={() => fileRef.current.click()}
@@ -390,6 +537,18 @@ export default function AddProduct() {
                   <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
                   {errors["images.0"] && <p className="text-[11px] text-red-500 mt-1.5">{errors["images.0"]}</p>}
                 </Card>
+
+                {/* ── Excel Upload ── */}
+                <ExcelUploadCard
+                  excelFile={excelFile}
+                  onFileSelect={handleExcelSelect}
+                  onRemove={() => setExcelFile(null)}
+                  error={errors.excel_file}
+                  dragActive={dragActive}
+                  onDragEnter={() => setDragActive(true)}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={handleExcelDrop}
+                />
 
                 {/* Status */}
                 <Card title="Product Status">

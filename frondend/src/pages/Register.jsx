@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import axios from "axios";
+import Footer from "../components/Footer";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -77,7 +78,7 @@ const Register = () => {
         { email, otp: otpValue }
       );
       setSuccess("Account created successfully! Redirecting...");
-      setTimeout(() => navigate("/login"), 1500);
+      setTimeout(() => navigate("/"), 1500);
     } catch (err) {
       setError(
         err.response?.data?.message || "Invalid or expired OTP. Please try again."
@@ -135,7 +136,7 @@ const Register = () => {
     <>
       <Header />
 
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-28">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
 
           {/* Card */}
@@ -396,6 +397,7 @@ const Register = () => {
           </p>
         </div>
       </div>
+      <Footer/>
     </>
   );
 };

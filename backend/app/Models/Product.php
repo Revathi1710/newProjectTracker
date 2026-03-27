@@ -26,16 +26,23 @@ class Product extends Model
         'status',
         'price',
         'quantity',
+
+        // Excel / data file
+        'excel_filename',
+        'excel_original_name',
+        'excel_path',
+        'excel_size',
+        'excel_mime',
     ];
 
     /**
      * The attributes that should be cast.
      */
     protected $casts = [
-       
         'total_projects' => 'integer',
         'price'          => 'decimal:2',
         'quantity'       => 'integer',
+        'excel_size'     => 'integer',
     ];
 
     /**
@@ -68,5 +75,13 @@ class Product extends Model
     public function getIsActiveAttribute(): bool
     {
         return $this->status === 'active';
+    }
+
+    /**
+     * Accessor: check if product has an Excel file attached.
+     */
+    public function getHasExcelAttribute(): bool
+    {
+        return !empty($this->excel_path);
     }
 }
