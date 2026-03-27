@@ -1,4 +1,3 @@
-// src/pages/HomePageProducts.jsx
 import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import React from "react";
@@ -8,20 +7,22 @@ import { addToCart, selectCartCount } from "../store/cartSlice";
 import BannerSection from "./BannerSection";
 
 export default function HomePageProducts() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const cartCount = useSelector(selectCartCount);
+
+  // Read values directly from URL
+  const search = searchParams.get("search") || "";
+  const category = searchParams.get("category") || "";
+  const page = parseInt(searchParams.get("page") || "1");
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [category, setCategory] = useState(searchParams.get("category") || "");
   const [sort, setSort] = useState("latest");
-  const [page, setPage] = useState(1);
   const [meta, setMeta] = useState(null);
   const [addingId, setAddingId] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
-
-  const dispatch = useDispatch();
-  const cartCount = useSelector(selectCartCount);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -41,7 +42,7 @@ export default function HomePageProducts() {
       }
     };
     loadProducts();
-  }, [search, category, sort, page]);
+  }, [search, category, sort, page]); // Effect runs whenever URL params change
 
   const handleAdd = async (product) => {
     try {
@@ -62,6 +63,10 @@ export default function HomePageProducts() {
       setAddingId(null);
       setTimeout(() => setToast({ message: "", type: "" }), 3000);
     }
+  };
+
+  const handlePageChange = (newPage) => {
+    setSearchParams({ ...Object.fromEntries(searchParams), page: newPage });
   };
 
   return (

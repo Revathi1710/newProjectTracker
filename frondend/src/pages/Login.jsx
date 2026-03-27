@@ -7,7 +7,7 @@ import { mergeGuestCart } from "../store/cartSlice"; // adjust path as needed
 import Footer from "../components/Footer";
 
 const Login = () => {
-  const navigate = useDispatch();
+  const navigate = useNavigate();
   const dispatch  = useDispatch();
 
   const [email,        setEmail       ] = useState("");
@@ -46,7 +46,7 @@ const Login = () => {
       //      ✅ session_id expired, token missing   → (won't reach here; not logged in)
       dispatch(mergeGuestCart(token));
 
-      setSuccess("Login successful! Redirecting...");
+      setSuccess("Login successful! ");
       setTimeout(() => navigate("/"), 1200);
     } catch (err) {
       setError(
