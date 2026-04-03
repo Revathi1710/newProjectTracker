@@ -9,16 +9,18 @@ trait ResolvesCart
 {
     protected function getOrCreateCart(Request $request): Cart
     {
-        // ── Authenticated user (Bearer token via Sanctum) ──
+        // ── Authenticated user takes priority ──
         if ($request->user()) {
             return Cart::firstOrCreate(['user_id' => $request->user()->id]);
         }
 
-        // ── Guest user: must send X-Session-Id header ──
+        // ── Guest: requires X-Session-Id ──
         $sessionId = $request->header('X-Session-Id');
 
         if (!$sessionId) {
-            abort(400, 'No session ID provided');
+            // ✅ Return empty cart object instead of aborting
+            // This prevents the 400 loop when session is missing
+            return new Cart(['session_id' => null, 'items' => collect()]);
         }
 
         return Cart::firstOrCreate(['session_id' => $sessionId]);
@@ -26,14 +28,17 @@ trait ResolvesCart
 
     protected function cartSummary(Cart $cart): array
     {
-        $cart->load('items.product.images');
+        // ✅ Only load if cart exists in DB (has an id)
+        if ($cart->id) {
+            $cart->load('items.product.images');
+        }
 
         return [
-            'data'  => $cart->items,
-            'total' => $cart->items->sum(
-                fn($item) => $item->quantity * ($item->product->active_price ?? $item->product->price)
+            'data'  => $cart->items ?? collect(),
+            'total' => ($cart->items ?? collect())->sum(
+                fn($item) => $item->quantity * ($item->product->active_price ?? $item->product->price ?? 0)
             ),
-            'count' => $cart->items->sum('quantity'),
+            'count' => ($cart->items ?? collect())->sum('quantity'),
         ];
     }
 }

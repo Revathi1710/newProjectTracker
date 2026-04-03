@@ -7,10 +7,10 @@ import { useSelector, useDispatch } from "react-redux";
 
 const navLinks = [
   { label: "Home", to: "/" },
-  { label: "About", to: "/about" },
+  { label: "About Us", to: "/about" },
   { label: "Blog", to: "/blogs" },
-  { label: "Buy Reports", to: "/reports" },
-  { label: "Subscriptions", to: "/subscriptions" },
+  { label: "Contact Us", to: "/contact" },
+
 ];
 
 const socialLinks = [
@@ -204,17 +204,17 @@ export default function Header() {
           </Link>
 
           <div className="mobile-contact-info">
-            <a href="tel:+18003654896">
+            <a href="tel:+919171015659">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              +1 800 365 4896
+              +919171015659
             </a>
-            <a href="mailto:support@nptstore.com">
+            <a href="mailto:sales@newprojectstracker.com">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              support@nptstore.com
+              sales@newprojectstracker.com
             </a>
           </div>
 

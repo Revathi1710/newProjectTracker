@@ -286,7 +286,7 @@ export default function Checkout() {
   // ── Main checkout UI ───────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F4F7FC] pb-16">
-      <Header />
+     
 
       <div className="max-w-6xl mx-auto px-4 pt-8 md:px-8" >
 

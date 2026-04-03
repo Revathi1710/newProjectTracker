@@ -1,22 +1,25 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import React from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
-import { addToCart, selectCartCount } from "../store/cartSlice";
+import { addToCart, selectCartCount, selectCartItems, fetchCart } from "../store/cartSlice";
 import BannerSection from "./BannerSection";
 
 export default function HomePageProducts() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const cartCount = useSelector(selectCartCount);
 
-  // Read values directly from URL
+  // Redux Selectors
+  const cartCount = useSelector(selectCartCount);
+  const cartItems = useSelector(selectCartItems);
+
+  // URL State
   const search = searchParams.get("search") || "";
   const category = searchParams.get("category") || "";
   const page = parseInt(searchParams.get("page") || "1");
 
+  // Local State
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState("latest");
@@ -24,6 +27,8 @@ export default function HomePageProducts() {
   const [addingId, setAddingId] = useState(null);
   const [toast, setToast] = useState({ message: "", type: "" });
 
+ 
+  // 2. Fetch Products
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true);
@@ -36,15 +41,24 @@ export default function HomePageProducts() {
         setMeta(result.meta || result);
       } catch (error) {
         console.error("Failed to load products:", error);
-        setProducts([]);
       } finally {
         setLoading(false);
       }
     };
     loadProducts();
-  }, [search, category, sort, page]); // Effect runs whenever URL params change
+  }, [search, category, sort, page]);
 
+  // 3. Handle Add to Cart with Duplicate Check
   const handleAdd = async (product) => {
+    // CHECK: Is this product already in our Redux cartItems array?
+    const isAlreadyInCart = cartItems.some((item) => item.product_id === product.id);
+
+    if (isAlreadyInCart) {
+      setToast({ message: "Product is already in your cart", type: "error" });
+      setTimeout(() => setToast({ message: "", type: "" }), 3000);
+      return; // Exit early!
+    }
+
     try {
       setAddingId(product.id);
       await dispatch(
@@ -56,7 +70,7 @@ export default function HomePageProducts() {
           image: product.images?.[0]?.path || null,
         })
       ).unwrap();
-      setToast({ message: "Product added successfully", type: "success" });
+      setToast({ message: "Added to cart!", type: "success" });
     } catch (error) {
       setToast({ message: "Failed to add product", type: "error" });
     } finally {
@@ -64,11 +78,6 @@ export default function HomePageProducts() {
       setTimeout(() => setToast({ message: "", type: "" }), 3000);
     }
   };
-
-  const handlePageChange = (newPage) => {
-    setSearchParams({ ...Object.fromEntries(searchParams), page: newPage });
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 selection:bg-blue-200 selection:text-blue-900">
 
@@ -100,9 +109,9 @@ export default function HomePageProducts() {
 
 <BannerSection/>
       {/* 2. MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto px-4 md:px-8 pb-24">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 pb-24 mt-12">
 
-        {/* Filters Bar */}
+        {/* Filters Bar
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10 py-6 border-b border-slate-200">
           <div className="flex items-center gap-4 shrink-0">
             <select
@@ -114,9 +123,9 @@ export default function HomePageProducts() {
               <option value="price_asc">PRICE: LOW TO HIGH</option>
               <option value="price_desc">PRICE: HIGH TO LOW</option>
             </select>
-          </div>
+          </div> */}
 
-          {/* Cart Button */}
+          {/* Cart Button 
           <button
             onClick={() => navigate("/cart")}
             className="relative flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all shadow-sm"
@@ -133,7 +142,7 @@ export default function HomePageProducts() {
               </span>
             )}
           </button>
-        </div>
+        </div>*/}
 
         {/* Product Grid */}
         {loading ? (

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useDispatch } from "react-redux";
-import { addToCart } from "../store/cartSlice";
-import { setBuyNowProduct } from "../store/buyNowSlice"; // ← new slice
+// Added useSelector to track the current cart state
+import { useDispatch, useSelector } from "react-redux";
+// Added fetchCart and selectCartItems to ensure we have the latest data
+import { addToCart, fetchCart, selectCartItems } from "../store/cartSlice";
+import { setBuyNowProduct } from "../store/buyNowSlice";
 import Header from "../components/Header";
 
 export default function ProductView() {
@@ -11,14 +13,23 @@ export default function ProductView() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  // --- REDUX SELECTORS ---
+  const cartItems = useSelector(selectCartItems);
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mainImg, setMainImg] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [cartAdded, setCartAdded] = useState(false); // ✅ shows tick after add
+  const [cartAdded, setCartAdded] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
 
+  // 1. Sync cart on mount to identify existing items after page refresh
+  useEffect(() => {
+    dispatch(fetchCart());
+  }, [dispatch]);
+
+  // 2. Fetch Product Data
   useEffect(() => {
     (async () => {
       try {
@@ -39,19 +50,28 @@ export default function ProductView() {
     setTimeout(() => setToast({ show: false, message: "", type: "success" }), 3500);
   };
 
-  // ─── ADD TO CART ──────────────────────────────────────────────────────────
-  // Adds product to shared cart. User stays on this page and can keep shopping.
-  // Cart badge in header will update via fetchCart (called inside addToCart thunk).
+  // ─── ADD TO CART (WITH DUPLICATE CHECK) ──────────────────────────────────
   const handleAddToCart = async () => {
     if (!product) return;
+
+    // CHECK: Is this product ID already in our cart array?
+    const isAlreadyInCart = cartItems.some((item) => item.product_id === product.id);
+
+    if (isAlreadyInCart) {
+      showToast("This item is already in your cart", "error");
+      return; // Stop the execution
+    }
+
     setAddingToCart(true);
     try {
       await dispatch(
         addToCart({ product_id: product.id, quantity: 1 })
       ).unwrap();
+      
       setCartAdded(true);
-      showToast("Added to cart! Continue shopping or go to cart.", "success");
-      // Reset tick after 3s so button is re-usable
+      showToast("Added to cart successfully!", "success");
+      
+      // Reset the "tick" UI after 3 seconds
       setTimeout(() => setCartAdded(false), 3000);
     } catch (err) {
       showToast(typeof err === "string" ? err : "Failed to add to cart", "error");
@@ -61,14 +81,10 @@ export default function ProductView() {
   };
 
   // ─── BUY NOW ─────────────────────────────────────────────────────────────
-  // Does NOT touch the cart at all.
-  // Stores only this product in buyNow Redux slice → navigates to /checkout.
-  // The checkout page reads from buyNow slice, not from the cart.
   const handleBuyNow = () => {
     if (!product) return;
     setBuyingNow(true);
 
-    // Save this single product to the buyNow slice (bypasses cart entirely)
     dispatch(setBuyNowProduct({
       id:           product.id,
       name:         product.name,
@@ -79,16 +95,13 @@ export default function ProductView() {
       format:       product.format,
     }));
 
-    // Navigate directly to checkout — cart is untouched, no API call needed
     navigate("/checkout?flow=buynow");
-    // Note: setBuyingNow(false) is intentionally NOT called — component will unmount on navigate
   };
-
   /* ── Loading ── */
   if (loading)
     return (
       <>
-        <Header />
+        
         <div style={{ paddingTop: 116 }} className="min-h-screen bg-[#F4F7FC] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
@@ -101,7 +114,7 @@ export default function ProductView() {
   if (!product)
     return (
       <>
-        <Header />
+        
         <div style={{ paddingTop: 116 }} className="min-h-screen bg-[#F4F7FC] flex items-center justify-center">
           <div className="text-center">
             <div className="text-6xl mb-4">📭</div>
@@ -223,7 +236,7 @@ export default function ProductView() {
       </div>
 
       <div className="pv-wrap bg-[#F4F7FC] min-h-screen">
-        <Header />
+        
 
         <main className="max-w-7xl mx-auto px-4 pt-6 md:px-8 pb-24">
 

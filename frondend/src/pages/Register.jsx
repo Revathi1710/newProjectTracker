@@ -2,21 +2,21 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import axios from "axios";
+import { useDispatch } from "react-redux";
+import { mergeGuestCart,fetchCart } from "../store/cartSlice";
 import Footer from "../components/Footer";
 
 const Register = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  // Step 1: fill form | Step 2: verify OTP
   const [step, setStep] = useState(1);
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +24,6 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // ─── STEP 1: Submit registration form → backend sends OTP email ───
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
@@ -60,35 +59,50 @@ const Register = () => {
     }
   };
 
-  // ─── STEP 2: Verify OTP → complete registration ───
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    setError("");
+  // ✅ FIXED: Now saves token and merges guest cart
+// Inside Register.jsx
 
-    const otpValue = otp.join("");
-    if (otpValue.length !== 6) {
-      setError("Please enter the complete 6-digit OTP.");
-      return;
-    }
+const handleVerifyOtp = async (e) => {
+  e.preventDefault();
+  setError("");
 
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/register/verify-otp`,
-        { email, otp: otpValue }
-      );
-      setSuccess("Account created successfully! Redirecting...");
-      setTimeout(() => navigate("/"), 1500);
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "Invalid or expired OTP. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const otpValue = otp.join("");
+  if (otpValue.length !== 6) {
+    setError("Please enter the complete 6-digit OTP.");
+    return;
+  }
 
-  // ─── Resend OTP ───
+  setLoading(true);
+  try {
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/register/verify-otp`,
+      { email, otp: otpValue }
+    );
+
+    const { token, user } = response.data;
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+  try {
+  await dispatch(mergeGuestCart(token)).unwrap(); // ✅ this now updates Redux state
+} catch (mergeErr) {
+  console.warn("Cart merge failed:", mergeErr);
+  await dispatch(fetchCart()).unwrap(); // fallback if merge fails
+}
+
+    setSuccess("Account verified! Your cart has been synced.");
+    setTimeout(() => navigate("/"), 1200);
+  } catch (err) {
+    setError(
+      err.response?.data?.message || "Invalid or expired OTP. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
   const handleResend = async () => {
     setError("");
     setSuccess("");
@@ -106,13 +120,11 @@ const Register = () => {
     }
   };
 
-  // ─── OTP input box handler ───
   const handleOtpChange = (value, index) => {
-    if (!/^\d?$/.test(value)) return; // digits only
+    if (!/^\d?$/.test(value)) return;
     const updated = [...otp];
     updated[index] = value;
     setOtp(updated);
-    // Auto-focus next box
     if (value && index < 5) {
       document.getElementById(`otp-${index + 1}`)?.focus();
     }
@@ -134,15 +146,12 @@ const Register = () => {
 
   return (
     <>
-      <Header />
 
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
 
-          {/* Card */}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-xl shadow-slate-100 p-8">
 
-            {/* Logo mark */}
             <div className="flex justify-center mb-6">
               <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-200">
                 <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -152,10 +161,10 @@ const Register = () => {
               </div>
             </div>
 
-            {/* ── STEP INDICATOR ── */}
+            {/* Step Indicator */}
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className={`flex items-center gap-2 text-xs font-bold ${step === 1 ? "text-blue-600" : "text-slate-400"}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black ${step === 1 ? "bg-blue-600 text-white" : "bg-green-500 text-white"}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black ${step > 1 ? "bg-green-500 text-white" : "bg-blue-600 text-white"}`}>
                   {step > 1 ? "✓" : "1"}
                 </span>
                 Details
@@ -187,9 +196,7 @@ const Register = () => {
               </div>
             )}
 
-            {/* ══════════════════════════════════
-                STEP 1 — Registration Form
-            ══════════════════════════════════ */}
+            {/* STEP 1 — Registration Form */}
             {step === 1 && (
               <>
                 <h1 className="text-2xl font-black text-slate-900 text-center mb-1">Create Account</h1>
@@ -197,7 +204,6 @@ const Register = () => {
 
                 <form onSubmit={handleRegister} className="flex flex-col gap-4">
 
-                  {/* Full Name */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Full Name</label>
                     <div className="relative">
@@ -215,7 +221,6 @@ const Register = () => {
                     </div>
                   </div>
 
-                  {/* Email */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Email Address</label>
                     <div className="relative">
@@ -233,7 +238,6 @@ const Register = () => {
                     </div>
                   </div>
 
-                  {/* Mobile */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Mobile Number</label>
                     <div className="relative">
@@ -251,7 +255,6 @@ const Register = () => {
                     </div>
                   </div>
 
-                  {/* Password */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Password</label>
                     <div className="relative">
@@ -275,7 +278,6 @@ const Register = () => {
                     </div>
                   </div>
 
-                  {/* Confirm Password */}
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">Confirm Password</label>
                     <div className="relative">
@@ -317,16 +319,12 @@ const Register = () => {
 
                 <p className="text-center text-sm text-slate-400 mt-6">
                   Already have an account?{" "}
-                  <Link to="/login" className="text-blue-600 font-bold hover:underline">
-                    Log In
-                  </Link>
+                  <Link to="/login" className="text-blue-600 font-bold hover:underline">Log In</Link>
                 </p>
               </>
             )}
 
-            {/* ══════════════════════════════════
-                STEP 2 — OTP Verification
-            ══════════════════════════════════ */}
+            {/* STEP 2 — OTP Verification */}
             {step === 2 && (
               <>
                 <h1 className="text-2xl font-black text-slate-900 text-center mb-1">Verify Your Email</h1>
@@ -336,7 +334,6 @@ const Register = () => {
                 </p>
 
                 <form onSubmit={handleVerifyOtp} className="flex flex-col gap-6">
-                  {/* OTP Boxes */}
                   <div className="flex justify-center gap-3" onPaste={handleOtpPaste}>
                     {otp.map((digit, i) => (
                       <input
@@ -369,7 +366,6 @@ const Register = () => {
                   </button>
                 </form>
 
-                {/* Resend & Back */}
                 <div className="flex items-center justify-between mt-5 text-sm">
                   <button
                     onClick={() => { setStep(1); setError(""); setSuccess(""); }}
@@ -389,7 +385,6 @@ const Register = () => {
             )}
           </div>
 
-          {/* Footer note */}
           <p className="text-center text-xs text-slate-400 mt-6">
             By registering you agree to our{" "}
             <Link to="/terms" className="text-blue-500 hover:underline">Terms</Link> &{" "}
@@ -397,7 +392,7 @@ const Register = () => {
           </p>
         </div>
       </div>
-      <Footer/>
+     
     </>
   );
 };

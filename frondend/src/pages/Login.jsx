@@ -19,48 +19,35 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
     setLoading(true);
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_API_URL}/login`, {
-        email,
-        password,
-      });
+        const response = await axios.post(`${import.meta.env.VITE_API_URL}/login`, { email, password });
+        const { token, user } = response.data;
 
-      const { token, user } = response.data;
+        // 1. Save Credentials
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
-      // 1. Persist auth
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+        // 2. CRITICAL: Merge the guest items into the user account
+        // We use .unwrap() to "wait" for the merge and fetch to finish
+        await dispatch(mergeGuestCart(token)).unwrap();
 
-      // 2. Set default header for all future axios calls
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-      // 3. Merge guest cart (or just fetch user cart if no guest session exists).
-      //    mergeGuestCart handles all 4 scenarios internally:
-      //      ✅ Guest had items + session_id valid  → merge then fetch
-      //      ✅ No guest session / session expired  → fetch user cart directly
-      //      ✅ User revisits with token            → fetch user cart directly
-      //      ✅ session_id expired, token missing   → (won't reach here; not logged in)
-      dispatch(mergeGuestCart(token));
-
-      setSuccess("Login successful! ");
-      setTimeout(() => navigate("/"), 1200);
+        setSuccess("Logged in! Your cart is ready.");
+        
+        // 3. Navigate to checkout or home
+        setTimeout(() => navigate("/"), 1000);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Invalid email or password. Please try again."
-      );
+        setError(err.response?.data?.message || "Login failed");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   return (
     <>
-      <Header />
+     
 
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
@@ -228,7 +215,7 @@ const Login = () => {
           </p>
         </div>
       </div>
-      <Footer/>
+     
     </>
   );
 };

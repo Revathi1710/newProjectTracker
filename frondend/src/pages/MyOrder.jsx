@@ -105,7 +105,6 @@ export const MyOrder = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
-      <Header />
       
       {/* Header Section */}
       <div className="bg-white border-b border-slate-200/60 pt-6 pb-6 md:pt-6 md:pb-6">

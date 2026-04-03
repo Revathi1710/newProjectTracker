@@ -1,9 +1,10 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-// ─── Always get or create a session ID ───────────────────────────────────────
-// Guaranteed to always return a value — never null, never undefined.
-// This ensures X-Session-Id header is NEVER missing for guest requests.
+/**
+ * ─── HELPER: GET OR CREATE SESSION ID ───────────────────────────────────────
+ * Ensures guest users always have a unique identifier for their cart.
+ */
 const getSessionId = () => {
   let id = localStorage.getItem("cart_session_id");
   if (!id) {
@@ -13,33 +14,33 @@ const getSessionId = () => {
   return id;
 };
 
-// ─── Axios instance ───────────────────────────────────────────────────────────
-// Logged-in  → Authorization: Bearer <token>
-// Guest      → X-Session-Id: <uuid>   (always created if missing)
-const cartApi = () => {
+/**
+ * ─── HELPER: DYNAMIC API CONFIG ─────────────────────────────────────────────
+ * Automatically attaches Authorization token or X-Session-Id to every request.
+ */
+const getHeaders = () => {
   const token = localStorage.getItem("token");
-
   const headers = {
     "Content-Type": "application/json",
-    "X-Session-Id": getSessionId(), // ✅ ALWAYS SEND
+    "X-Session-Id": getSessionId(),
   };
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-
-  return axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    headers,
-  });
+  return headers;
 };
-// ─── Thunks ───────────────────────────────────────────────────────────────────
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+// ─── THUNKS ──────────────────────────────────────────────────────────────────
+
+// 1. Fetch Cart Summary
 export const fetchCart = createAsyncThunk(
   "cart/fetch",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await cartApi().get("/cart");
+      const res = await axios.get(`${API_URL}/cart`, { headers: getHeaders() });
       return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Failed to load cart");
@@ -47,123 +48,132 @@ export const fetchCart = createAsyncThunk(
   }
 );
 
+// 2. Add Product to Cart
 export const addToCart = createAsyncThunk(
   "cart/add",
   async ({ product_id, quantity = 1 }, { dispatch, rejectWithValue }) => {
     try {
-      await cartApi().post("/cart", { product_id, quantity });
-      dispatch(fetchCart());
+      await axios.post(`${API_URL}/cart`, { product_id, quantity }, { headers: getHeaders() });
+      return dispatch(fetchCart()).unwrap();
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Failed to add");
+      return rejectWithValue(err.response?.data?.message || "Failed to add item");
     }
   }
 );
 
+// 3. Update Item Quantity
 export const updateQuantity = createAsyncThunk(
   "cart/updateQuantity",
   async ({ id, quantity }, { dispatch, rejectWithValue }) => {
     try {
-      await cartApi().put(`/cart/${id}`, { quantity });
-      dispatch(fetchCart());
+      await axios.put(`${API_URL}/cart/${id}`, { quantity }, { headers: getHeaders() });
+      return dispatch(fetchCart()).unwrap();
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Failed to update");
+      return rejectWithValue(err.response?.data?.message || "Failed to update quantity");
     }
   }
 );
 
+// 4. Remove Single Item
 export const removeFromCart = createAsyncThunk(
   "cart/remove",
   async (id, { dispatch, rejectWithValue }) => {
     try {
-      await cartApi().delete(`/cart/${id}`);
-      dispatch(fetchCart());
+      await axios.delete(`${API_URL}/cart/${id}`, { headers: getHeaders() });
+      return dispatch(fetchCart()).unwrap();
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Failed to remove");
+      return rejectWithValue(err.response?.data?.message || "Failed to remove item");
     }
   }
 );
 
+// 5. Clear Entire Cart
 export const clearCartAsync = createAsyncThunk(
   "cart/clear",
   async (_, { dispatch, rejectWithValue }) => {
     try {
-      await cartApi().delete("/cart/clear");
-      dispatch(fetchCart());
+      await axios.delete(`${API_URL}/cart/clear`, { headers: getHeaders() });
+      return dispatch(fetchCart()).unwrap();
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Failed to clear");
+      return rejectWithValue(err.response?.data?.message || "Failed to clear cart");
     }
   }
 );
 
-// ─── Merge guest cart after login / register ──────────────────────────────────
+/**
+ * 6. Merge Guest Cart (CRITICAL FOR LOGIN FLOW)
+ * Call this in your Login component immediately after saving the token.
+ */
 export const mergeGuestCart = createAsyncThunk(
   "cart/merge",
-  async (token, { dispatch }) => {
-    const sessionId = localStorage.getItem("cart_session_id");
-
-    if (!sessionId) {
-      dispatch(fetchCart());
-      return;
-    }
-
+  async (token, { rejectWithValue }) => {
     try {
-      await axios.post(
+      // Grab the guest session ID from storage
+      const sessionId = localStorage.getItem("cart_session_id");
+      
+      const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/cart/merge`,
-        { session_id: sessionId },
+        { session_id: sessionId }, // Send the guest ID so backend knows what to move
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      // Once merged, the guest session is no longer needed
       localStorage.removeItem("cart_session_id");
+      
+      return response.data; // Should return the updated cart items
     } catch (err) {
-      console.warn("Cart merge failed:", err);
-      localStorage.removeItem("cart_session_id");
-    } finally {
-      dispatch(fetchCart());
+      return rejectWithValue(err.response.data);
     }
   }
 );
 
-// ─── Slice ────────────────────────────────────────────────────────────────────
+// ─── SLICE ────────────────────────────────────────────────────────────────────
 
 const cartSlice = createSlice({
   name: "cart",
   initialState: {
-    items:   [],
-    total:   0,
-    count:   0,
+    items: [],
+    total: 0,
+    count: 0,
     loading: false,
-    error:   null,
+    error: null,
   },
   reducers: {
+    // Manually reset cart (e.g., on Logout)
     resetCartState: (state) => {
       state.items = [];
       state.total = 0;
       state.count = 0;
+      state.error = null;
+      localStorage.removeItem("cart_session_id");
     },
   },
   extraReducers: (builder) => {
     builder
+      // Fetch Cart Handlers
       .addCase(fetchCart.pending, (state) => {
         state.loading = true;
-        state.error   = null;
+        state.error = null;
       })
       .addCase(fetchCart.fulfilled, (state, action) => {
         state.loading = false;
-        state.items   = action.payload.data  || [];
-        state.total   = action.payload.total || 0;
-        state.count   = action.payload.count || 0;
+        state.items = action.payload.data || [];
+        state.total = action.payload.total || 0;
+        state.count = action.payload.count || 0;
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.loading = false;
-        state.error   = action.payload;
+        state.error = action.payload;
       });
   },
 });
 
 export const { resetCartState } = cartSlice.actions;
-export default cartSlice.reducer;
 
-// ─── Selectors ────────────────────────────────────────────────────────────────
-export const selectCartItems   = (state) => state.cart.items;
-export const selectCartTotal   = (state) => state.cart.total;
-export const selectCartCount   = (state) => state.cart.count;
+// Selectors for easy access in components
+export const selectCartItems = (state) => state.cart.items;
+export const selectCartTotal = (state) => state.cart.total;
+export const selectCartCount = (state) => state.cart.count;
 export const selectCartLoading = (state) => state.cart.loading;
+
+export default cartSlice.reducer;
