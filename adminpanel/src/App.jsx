@@ -9,7 +9,7 @@ import AllOrders from "./pages/AllOrders";
 import AdminLogin from "./pages/AdminLogin";
 import AddBlog from "./pages/AddBlog";
 import AllBlogs from "./pages/Blogs";
-import EditBlog from "./pages/EditBlog.JSX";
+import EditBlog from "./pages/EditBlog";
 import AdminProtectedRoute from "./component/AdminProtectedRoute";
 import ChangePassword from "./pages/ChangePassword";
 import UploadProjects from "./pages/UploadProjects";
@@ -18,7 +18,7 @@ import AllUser from "./pages/AllUser";
 function App() {
 
   return (
-    <BrowserRouter>
+    <BrowserRouter  basename="/admin/">
       <Routes>
 
         {/* 🔓 Public Route */}
@@ -38,9 +38,9 @@ function App() {
         } />
 
         <Route path="/allProduct" element={
-          <AdminProtectedRoute>
+         
             <AllProduct />
-          </AdminProtectedRoute>
+         
         } />
 
         <Route path="/editProduct/:id" element={
@@ -55,9 +55,9 @@ function App() {
           </AdminProtectedRoute>
         } />
 <Route path="/settings/password" element={
-          <AdminProtectedRoute>
+          
             <ChangePassword />
-          </AdminProtectedRoute>
+          
         } />
         <Route path="/addBlog" element={
           <AdminProtectedRoute>

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import Sidebar from '../component/Sidebar';
+import { useNavigate } from 'react-router-dom';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const ExcelIcon = () => (
@@ -18,7 +19,7 @@ const AllProduct = () => {
   const [deleting, setDeleting]     = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [openDropdown, setOpenDropdown] = useState(null);
-
+const navigate=useNavigate();
   // ── Filter state ──────────────────────────────────────────────────────────
   const [filterOpen, setFilterOpen]           = useState(false);
   const [filterName, setFilterName]           = useState('');
@@ -443,7 +444,12 @@ const AllProduct = () => {
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
                               <div className="absolute right-0 mt-1 w-36 rounded-xl bg-white border border-gray-100 shadow-lg z-20 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
-                                <button onClick={() => { setOpenDropdown(null); window.location.href = `/editProduct/${item.id}`; }} className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                             
+                                <button onClick={() => { 
+  setOpenDropdown(null); 
+  navigate(`/editProduct/${item.id}`);
+}}
+                                 className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                   <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                   Edit
                                 </button>
